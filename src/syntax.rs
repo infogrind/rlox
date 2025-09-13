@@ -17,7 +17,10 @@ pub enum Expression {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Add(lhs, rhs) => write!(f, "{} + {}", lhs, rhs),
+            Expression::Add(lhs, rhs) => write!(f, "({} + {})", lhs, rhs),
+            Expression::Sub(lhs, rhs) => write!(f, "({} - {})", lhs, rhs),
+            Expression::Mult(lhs, rhs) => write!(f, "({} * {})", lhs, rhs),
+            Expression::Div(lhs, rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Number(i) => write!(f, "{i}"),
             _ => unimplemented!(),
         }

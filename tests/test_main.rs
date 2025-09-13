@@ -20,7 +20,7 @@ fn test_number_expression() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     expect_that!(
         stdout.lines().collect::<Vec<&str>>(),
-        elements_are!(&"> Result: 321", &"> ", &"Ok, bye!")
+        elements_are!(&"> 321", &"> ", &"Ok, bye!")
     );
 }
 
@@ -41,5 +41,25 @@ fn test_empty() {
     expect_that!(
         stdout.lines().collect::<Vec<&str>>(),
         elements_are!(&"> No input.", &"> ", &"Ok, bye!")
+    );
+}
+
+#[gtest]
+fn test_simple_calculation() {
+    let mut child = Command::new(APP_NAME)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Could not start child command");
+    if let Some(stdin) = child.stdin.as_mut() {
+        writeln!(stdin, "2 + 3*5").expect("Error writing to child process");
+        // stdin is dropped here, sending an EOF. Also, dropping implicitly flushes.
+    }
+
+    let output = child.wait_with_output().expect("Error waiting for child");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    expect_that!(
+        stdout.lines().collect::<Vec<&str>>(),
+        elements_are!(&"> (2 + (3 * 5))", &"> ", &"Ok, bye!")
     );
 }
