@@ -47,28 +47,18 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
     type Item = Token;
     fn next(&mut self) -> Option<Token> {
         self.skip_whitespace();
-        match self.chars.peek() {
-            Some(c) if c.is_ascii_digit() => Some(self.scan_number()),
-            // Single character tokens are easy.
-            Some(&'+') => {
-                self.chars.next();
-                Some(Plus)
+        let c = self.chars.peek()?;
+        if c.is_ascii_digit() {
+            Some(self.scan_number())
+        } else {
+            match self.chars.next()? {
+                '+' => Some(Plus),
+                '-' => Some(Minus),
+                '*' => Some(Minus),
+                '/' => Some(Minus),
+                // TODO: Handle other token types here.
+                c => panic!("Invalid character: '{}'", c),
             }
-            Some(&'-') => {
-                self.chars.next();
-                Some(Minus)
-            }
-            Some(&'*') => {
-                self.chars.next();
-                Some(Minus)
-            }
-            Some(&'/') => {
-                self.chars.next();
-                Some(Minus)
-            }
-            // TODO: Handle other token types here.
-            Some(c) => panic!("Invalid character: '{}'", c),
-            None => None,
         }
     }
 }
