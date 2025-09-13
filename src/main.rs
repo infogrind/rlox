@@ -1,3 +1,4 @@
+use rlox::interpreter;
 use std::io::{self, Write};
 
 fn main() {
@@ -12,7 +13,7 @@ fn main() {
                     println!("\nOk, bye!");
                     break;
                 } else {
-                    println!("You wrote: {}", buffer.trim());
+                    println!("{}", interpreter::interpret(buffer.trim()));
                 }
             }
             Err(e) => {
