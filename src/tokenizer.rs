@@ -12,6 +12,18 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
         }
     }
 
+    fn skip_whitespace(&mut self) {
+        loop {
+            match self.chars.peek() {
+                Some(c) if c.is_whitespace() => {
+                    self.chars.next();
+                    continue;
+                }
+                _ => break,
+            }
+        }
+    }
+
     fn scan_number(&mut self) -> Token {
         // Invariant: next character is invariably a char.
         let mut buf = String::from(self.chars.next().unwrap());
@@ -34,6 +46,7 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
 impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
     type Item = Token;
     fn next(&mut self) -> Option<Token> {
+        self.skip_whitespace();
         let c = self.chars.peek()?;
         if c.is_ascii_digit() {
             Some(self.scan_number())
@@ -43,7 +56,7 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
         } else {
             // TODO: Parse other token types, skip whitespace.
             // TODO: Proper error handling using Result<> instead of panic.
-            panic!("Invalid character: {}", c)
+            panic!("Invalid character: '{}'", c)
         }
     }
 }
@@ -51,6 +64,7 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use Token::*;
     use googletest::prelude::*;
 
     fn tokenize(s: &str) -> Vec<Token> {
@@ -59,12 +73,38 @@ mod tests {
     }
 
     #[gtest]
-    fn test_parse_number() {
-        expect_that!(tokenize("123"), elements_are!(&Token::Number(123)));
+    fn test_scan_number() {
+        expect_that!(tokenize("123"), elements_are!(&Number(123)));
     }
 
     #[gtest]
-    fn test_parse_plus() {
-        expect_that!(tokenize("+"), elements_are!(&Token::Plus));
+    fn test_leading_whitespace_trimmed() {
+        expect_that!(tokenize("  12"), elements_are!(&Number(12)));
+    }
+
+    #[gtest]
+    fn test_trailing_whitespace_trimmed() {
+        expect_that!(tokenize("34  "), elements_are!(&Number(34)));
+    }
+
+    #[gtest]
+    fn test_scan_plus() {
+        expect_that!(tokenize("+"), elements_are!(&Plus));
+    }
+
+    #[gtest]
+    fn test_scan_two_numbers() {
+        expect_that!(
+            tokenize(" 123  456 "),
+            elements_are!(&Number(123), &Number(456))
+        );
+    }
+
+    #[gtest]
+    fn test_scan_number_plus_number() {
+        expect_that!(
+            tokenize("1+2"),
+            elements_are!(&Number(1), &Plus, &Number(2))
+        )
     }
 }
