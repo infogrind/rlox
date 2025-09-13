@@ -13,14 +13,8 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
     }
 
     fn skip_whitespace(&mut self) {
-        loop {
-            match self.chars.peek() {
-                Some(c) if c.is_whitespace() => {
-                    self.chars.next();
-                    continue;
-                }
-                _ => break,
-            }
+        while matches!(self.chars.peek(), Some(c) if c.is_whitespace()) {
+            self.chars.next();
         }
     }
 
