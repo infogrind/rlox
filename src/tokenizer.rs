@@ -48,8 +48,8 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
             match self.chars.next()? {
                 '+' => Some(Plus),
                 '-' => Some(Minus),
-                '*' => Some(Minus),
-                '/' => Some(Minus),
+                '*' => Some(Times),
+                '/' => Some(Slash),
                 // TODO: Handle other token types here.
                 c => panic!("Invalid character: '{}'", c),
             }
@@ -110,11 +110,37 @@ mod tests {
 
     #[gtest]
     fn test_scan_times() {
-        expect_that!(tokenize("*"), elements_are!(&Minus))
+        expect_that!(tokenize("*"), elements_are!(&Times))
     }
 
     #[gtest]
     fn test_scan_slash() {
-        expect_that!(tokenize("/"), elements_are!(&Minus))
+        expect_that!(tokenize("/"), elements_are!(&Slash))
+    }
+
+    #[gtest]
+    fn test_scan_complex_sequence() {
+        expect_that!(
+            tokenize(" 1/34 9+9/1-**/02+ 2+ 3 "),
+            elements_are!(
+                &Number(1),
+                &Slash,
+                &Number(34),
+                &Number(9),
+                &Plus,
+                &Number(9),
+                &Slash,
+                &Number(1),
+                &Minus,
+                &Times,
+                &Times,
+                &Slash,
+                &Number(2),
+                &Plus,
+                &Number(2),
+                &Plus,
+                &Number(3)
+            )
+        )
     }
 }
