@@ -7,17 +7,29 @@ where
     I: Iterator<Item = Token>,
 {
     let mut p = tokens.peekable();
+    // We can't use `map()` on the Option returned by peek() here, as this would lead to a double
+    // mutable borrow, because we'd have to use p inside the lambda while it's borrowed immutably
+    // by `peek()`.
+    #[allow(clippy::manual_map)]
     let result = match p.peek() {
         Some(_) => Some(parse_term(&mut p)),
         None => None,
     };
     // Make sure no tokens follow.
     match p.peek() {
+        // TODO: Make the function return a Result so that we can return a proper error here.
         Some(t) => panic!("Unexpected token {:?} after term.", t),
         None => result,
     }
 }
 
+/// Parses a term expression.
+///
+/// Syntax definition:
+///
+/// ```ignore
+/// term → factor ( ( "-" | "+" ) factor )* ;
+/// ```
 fn parse_term<I>(p: &mut Peekable<I>) -> Expression
 where
     I: Iterator<Item = Token>,
@@ -42,10 +54,19 @@ where
     }
 }
 
+/// Parses a factor expression.
+///
+/// Syntax definition:
+///
+/// ```ignore
+/// term → primary ( ( "*" | "/" ) primary )* ;
+/// ```
 fn parse_factor<I>(p: &mut Peekable<I>) -> Expression
 where
     I: Iterator<Item = Token>,
 {
+    // Note that the implementation has exactly the same structure as `parse_term` above, only the
+    // tokens are different and the types of sub-expressions.
     let mut lhs = parse_primary(p);
     loop {
         match p.peek() {
@@ -66,12 +87,15 @@ where
     }
 }
 
+/// Parses a primary expression.
 fn parse_primary<I>(p: &mut Peekable<I>) -> Expression
 where
     I: Iterator<Item = Token>,
 {
     match p.next() {
         Some(NumberToken(i)) => Number(i),
+        // TODO: Support other primaries besides numbers.
+        // TODO: Use Result to return a proper error here.
         None => panic!("Unexpected end of expression"),
         Some(t) => panic!("Unexpected token while parsing primary: {:?}", t),
     }

@@ -1,25 +1,40 @@
 use crate::tokens::Token::{self, *};
 use std::iter::Peekable;
 
+/// A tokenizer allows to iterate over the tokens produced from a stream of characters.
 pub struct Tokenizer<I: Iterator<Item = char>> {
+    // We need to keep the char iterator as state, so that we can repeatedly access it within a
+    // single `next()` call. We wrap it in `Peekable` so that we can `peek()` to the next
+    // character.
     chars: Peekable<I>,
 }
 
 impl<I: Iterator<Item = char>> Tokenizer<I> {
+    /// Create a new tokenizer from a character stream.
     pub fn from(iter: I) -> Self {
         Tokenizer {
             chars: iter.peekable(),
         }
     }
 
+    /// Moves forward in the character stream until all whitespace has been skipped.
+    ///
+    /// This guarantees that the next character returned is NOT whitespace (but it is possible that
+    /// `next()` will return None, if we've reached the end of the character stream).
     fn skip_whitespace(&mut self) {
+        // The matches! macro is a nice way to use a complex match expression in place of a boolean
+        // expression.
         while matches!(self.chars.peek(), Some(c) if c.is_whitespace()) {
             self.chars.next();
         }
     }
 
+    /// Scans a number. Must only be called if it has previously been detected that the next
+    /// character is a digit.
     fn scan_number(&mut self) -> Token {
-        // Invariant: next character is invariably a char.
+        // FIXME: Protect against too large numbers. E.g. if the character stream contains
+        // 1000000000000 then parse() below will fail.
+        assert!(self.chars.peek().is_some_and(|c| c.is_ascii_digit()));
         let mut buf = String::from(self.chars.next().unwrap());
         loop {
             match self.chars.peek() {
@@ -33,10 +48,13 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
                 }
             }
         }
+        // It's safe to use unwrap here, as the above code ensures we are only adding digits to the
+        // buffer.
         Token::NumberToken(buf.parse().unwrap())
     }
 }
 
+/// Iterator trait implementation for Tokenizer.
 impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
     type Item = Token;
     fn next(&mut self) -> Option<Token> {
@@ -44,13 +62,16 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
         let c = self.chars.peek()?;
         if c.is_ascii_digit() {
             Some(self.scan_number())
+            // TODO: Handle other multi-character tokens here.
         } else {
+            // Single character tokens are handled easily.
             match self.chars.next()? {
                 '+' => Some(Plus),
                 '-' => Some(Minus),
                 '*' => Some(Times),
                 '/' => Some(Slash),
-                // TODO: Handle other token types here.
+                // TODO: Handle other single character tokens here.
+                // TODO: Change this code to return a Result, so that we dont' have to panic here.
                 c => panic!("Invalid character: '{}'", c),
             }
         }
@@ -59,6 +80,7 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
 
 #[cfg(test)]
 mod tests {
+    // Standard practice: make everything from above accessible.
     use super::*;
     use googletest::prelude::*;
 
