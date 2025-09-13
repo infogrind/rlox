@@ -22,17 +22,41 @@ fn parse_term<I>(p: &mut Peekable<I>) -> Expression
 where
     I: Iterator<Item = Token>,
 {
-    let mut lhs = parse_primary(p);
+    let mut lhs = parse_factor(p);
     loop {
         match p.peek() {
             // End of input
             Some(Plus) => {
                 p.next();
-                lhs = Add(Box::new(lhs), Box::new(parse_primary(p)));
+                lhs = Add(Box::new(lhs), Box::new(parse_factor(p)));
             }
             Some(Minus) => {
                 p.next();
-                lhs = Sub(Box::new(lhs), Box::new(parse_primary(p)));
+                lhs = Sub(Box::new(lhs), Box::new(parse_factor(p)));
+            }
+            // End of production, just return what we have.
+            Some(_) => break lhs,
+            // End of input, just return what we have.
+            None => break lhs,
+        }
+    }
+}
+
+fn parse_factor<I>(p: &mut Peekable<I>) -> Expression
+where
+    I: Iterator<Item = Token>,
+{
+    let mut lhs = parse_primary(p);
+    loop {
+        match p.peek() {
+            // End of input
+            Some(Times) => {
+                p.next();
+                lhs = Mult(Box::new(lhs), Box::new(parse_primary(p)));
+            }
+            Some(Slash) => {
+                p.next();
+                lhs = Div(Box::new(lhs), Box::new(parse_primary(p)));
             }
             // End of production, just return what we have.
             Some(_) => break lhs,
@@ -95,6 +119,55 @@ mod tests {
             eq(&Some(Sub(
                 Box::new(Sub(Box::new(Number(1)), Box::new(Number(2)))),
                 Box::new(Number(3))
+            )))
+        )
+    }
+
+    #[gtest]
+    fn parse_multiplication() {
+        expect_that!(
+            p("2*3"),
+            eq(&Some(Mult(Box::new(Number(2)), Box::new(Number(3)))))
+        )
+    }
+
+    #[gtest]
+    fn parse_multiplication_three_terms() {
+        expect_that!(
+            p("2*3*4"),
+            eq(&Some(Mult(
+                Box::new(Mult(Box::new(Number(2)), Box::new(Number(3)))),
+                Box::new(Number(4))
+            )))
+        )
+    }
+
+    #[gtest]
+    fn parse_division() {
+        expect_that!(
+            p("2/3"),
+            eq(&Some(Div(Box::new(Number(2)), Box::new(Number(3)))))
+        )
+    }
+
+    #[gtest]
+    fn parse_division_three_terms() {
+        expect_that!(
+            p("2/3/4"),
+            eq(&Some(Div(
+                Box::new(Div(Box::new(Number(2)), Box::new(Number(3)))),
+                Box::new(Number(4))
+            )))
+        )
+    }
+
+    #[gtest]
+    fn multiplication_addition_priority() {
+        expect_that!(
+            p("2+3*5"),
+            eq(&Some(Add(
+                Box::new(Number(2)),
+                Box::new(Mult(Box::new(Number(3)), Box::new(Number(5))))
             )))
         )
     }
