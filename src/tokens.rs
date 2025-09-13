@@ -6,6 +6,7 @@ pub enum Token {
     Minus,
     Times,
     Slash,
-    Lparen,
-    Rparen,
+    // TODO: Support additional tokens.
+    // Lparen,
+    // Rparen,
 }

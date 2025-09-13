@@ -6,12 +6,14 @@ pub enum Expression {
     Sub(Box<Expression>, Box<Expression>),
     Mult(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
-    Number(i32), // TODO: Support floats
-    Str(String),
-    Identifier(String),
-    True,
-    False,
-    Nil,
+    // TODO: Support floats.
+    Number(i32),
+    // TODO: Add support for additional expression types.
+    // Str(String),
+    // Identifier(String),
+    // True,
+    // False,
+    // Nil,
 }
 
 impl fmt::Display for Expression {
@@ -22,7 +24,6 @@ impl fmt::Display for Expression {
             Expression::Mult(lhs, rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(lhs, rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Number(i) => write!(f, "{i}"),
-            _ => unimplemented!(),
         }
     }
 }
