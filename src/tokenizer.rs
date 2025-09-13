@@ -33,7 +33,7 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
                 }
             }
         }
-        Token::Number(buf.parse().unwrap())
+        Token::NumberToken(buf.parse().unwrap())
     }
 }
 
@@ -69,17 +69,17 @@ mod tests {
 
     #[gtest]
     fn test_scan_number() {
-        expect_that!(tokenize("123"), elements_are!(&Number(123)));
+        expect_that!(tokenize("123"), elements_are!(&NumberToken(123)));
     }
 
     #[gtest]
     fn test_leading_whitespace_trimmed() {
-        expect_that!(tokenize("  12"), elements_are!(&Number(12)));
+        expect_that!(tokenize("  12"), elements_are!(&NumberToken(12)));
     }
 
     #[gtest]
     fn test_trailing_whitespace_trimmed() {
-        expect_that!(tokenize("34  "), elements_are!(&Number(34)));
+        expect_that!(tokenize("34  "), elements_are!(&NumberToken(34)));
     }
 
     #[gtest]
@@ -91,7 +91,7 @@ mod tests {
     fn test_scan_two_numbers() {
         expect_that!(
             tokenize(" 123  456 "),
-            elements_are!(&Number(123), &Number(456))
+            elements_are!(&NumberToken(123), &NumberToken(456))
         );
     }
 
@@ -99,7 +99,7 @@ mod tests {
     fn test_scan_number_plus_number() {
         expect_that!(
             tokenize("1+2"),
-            elements_are!(&Number(1), &Plus, &Number(2))
+            elements_are!(&NumberToken(1), &Plus, &NumberToken(2))
         )
     }
 
@@ -123,23 +123,23 @@ mod tests {
         expect_that!(
             tokenize(" 1/34 9+9/1-**/02+ 2+ 3 "),
             elements_are!(
-                &Number(1),
+                &NumberToken(1),
                 &Slash,
-                &Number(34),
-                &Number(9),
+                &NumberToken(34),
+                &NumberToken(9),
                 &Plus,
-                &Number(9),
+                &NumberToken(9),
                 &Slash,
-                &Number(1),
+                &NumberToken(1),
                 &Minus,
                 &Times,
                 &Times,
                 &Slash,
-                &Number(2),
+                &NumberToken(2),
                 &Plus,
-                &Number(2),
+                &NumberToken(2),
                 &Plus,
-                &Number(3)
+                &NumberToken(3)
             )
         )
     }

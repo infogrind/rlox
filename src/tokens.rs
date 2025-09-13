@@ -1,6 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub enum Token {
-    Number(i32),
+    // Special name to avoid clashing with theh Number AST node type.
+    NumberToken(i32),
     Plus,
     Minus,
     Times,

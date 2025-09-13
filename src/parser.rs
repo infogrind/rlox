@@ -1,5 +1,5 @@
-use crate::syntax::Expression;
-use crate::tokens::Token;
+use crate::syntax::Expression::{self, *};
+use crate::tokens::Token::{self, *};
 
 pub fn parse_expression<I>(tokens: &mut I) -> Option<Expression>
 where
@@ -8,7 +8,7 @@ where
     let mut p = tokens.peekable();
     let c = p.peek()?;
     match c {
-        Token::Number(i) => Some(Expression::Number(*i)),
+        NumberToken(i) => Some(Number(*i)),
         t => unimplemented!("Cannot parse token {:?} yet.", t),
     }
 }
@@ -26,6 +26,6 @@ mod tests {
 
     #[gtest]
     fn parse_number() {
-        expect_that!(p("123"), eq(&Some(Expression::Number(123))));
+        expect_that!(p("123"), eq(&Some(Number(123))));
     }
 }
