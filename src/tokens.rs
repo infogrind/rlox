@@ -4,7 +4,7 @@ pub enum Token {
     Plus,
     Minus,
     Times,
-    Div,
+    Slash,
     Lparen,
     Rparen,
 }

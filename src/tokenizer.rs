@@ -1,4 +1,4 @@
-use crate::tokens::Token;
+use crate::tokens::Token::{self, *};
 use std::iter::Peekable;
 
 pub struct Tokenizer<I: Iterator<Item = char>> {
@@ -47,16 +47,28 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
     type Item = Token;
     fn next(&mut self) -> Option<Token> {
         self.skip_whitespace();
-        let c = self.chars.peek()?;
-        if c.is_ascii_digit() {
-            Some(self.scan_number())
-        } else if c == &'+' {
-            self.chars.next();
-            Some(Token::Plus)
-        } else {
-            // TODO: Parse other token types, skip whitespace.
-            // TODO: Proper error handling using Result<> instead of panic.
-            panic!("Invalid character: '{}'", c)
+        match self.chars.peek() {
+            Some(c) if c.is_ascii_digit() => Some(self.scan_number()),
+            // Single character tokens are easy.
+            Some(&'+') => {
+                self.chars.next();
+                Some(Plus)
+            }
+            Some(&'-') => {
+                self.chars.next();
+                Some(Minus)
+            }
+            Some(&'*') => {
+                self.chars.next();
+                Some(Minus)
+            }
+            Some(&'/') => {
+                self.chars.next();
+                Some(Minus)
+            }
+            // TODO: Handle other token types here.
+            Some(c) => panic!("Invalid character: '{}'", c),
+            None => None,
         }
     }
 }
@@ -64,7 +76,6 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Token::*;
     use googletest::prelude::*;
 
     fn tokenize(s: &str) -> Vec<Token> {
@@ -106,5 +117,20 @@ mod tests {
             tokenize("1+2"),
             elements_are!(&Number(1), &Plus, &Number(2))
         )
+    }
+
+    #[gtest]
+    fn test_scan_minus() {
+        expect_that!(tokenize("-"), elements_are!(&Minus))
+    }
+
+    #[gtest]
+    fn test_scan_times() {
+        expect_that!(tokenize("*"), elements_are!(&Minus))
+    }
+
+    #[gtest]
+    fn test_scan_slash() {
+        expect_that!(tokenize("/"), elements_are!(&Minus))
     }
 }
