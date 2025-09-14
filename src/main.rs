@@ -10,8 +10,10 @@ fn main() {
         buffer.clear();
         print!("> ");
         // flush() is needed to write the prompt to the screen. Here it's considered safe to use
-        // unwrap(), as flush() is rarely expected to fail.
-        io::stdout().flush().unwrap();
+        // expect(), as flush() is rarely expected to fail.
+        io::stdout()
+            .flush()
+            .expect("Flushing stdout unexpectedly failed.");
 
         // Read a line of input.
         match io::stdin().read_line(&mut buffer) {

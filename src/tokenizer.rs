@@ -35,22 +35,28 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
         // FIXME: Protect against too large numbers. E.g. if the character stream contains
         // 1000000000000 then parse() below will fail.
         assert!(self.chars.peek().is_some_and(|c| c.is_ascii_digit()));
-        let mut buf = String::from(self.chars.next().unwrap());
+        let mut buf = String::from(self.chars.next().expect(
+            "There should always be a next character at the start of scan_number()."
+        ));
         loop {
             match self.chars.peek() {
                 None => break, // End of input
                 Some(c) => {
                     if c.is_ascii_digit() {
-                        buf.push(self.chars.next().unwrap())
+                        buf.push(self.chars.next().expect(
+                            "Peek indicated character, but next() returned None."));
                     } else {
                         break;
                     }
                 }
             }
         }
-        // It's safe to use unwrap here, as the above code ensures we are only adding digits to the
-        // buffer.
-        Token::NumberToken(buf.parse().unwrap())
+        // It's safe to use expect() here, as the above code ensures we are only adding digits to
+        // the buffer.
+        Token::NumberToken(
+            buf.parse()
+                .expect("Parsing error, even though we only added digits."),
+        )
     }
 }
 
