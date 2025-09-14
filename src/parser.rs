@@ -2,7 +2,10 @@ use crate::syntax::Expression::{self, *};
 use crate::tokens::Token::{self, *};
 use std::iter::Peekable;
 
-pub fn parse_expression<I>(tokens: &mut I) -> Option<Expression>
+/// Parses a sequence of tokens into an expression.
+///
+/// Returns `None` if and only if the given token stream is empty.
+pub fn parse_expression<I>(tokens: &mut I) -> Result<Option<Expression>, String>
 where
     I: Iterator<Item = Token>,
 {
@@ -17,9 +20,11 @@ where
     };
     // Make sure no tokens follow.
     match p.peek() {
-        // TODO: Make the function return a Result so that we can return a proper error here.
-        Some(t) => panic!("Unexpected token {:?} after term.", t),
-        None => result,
+        Some(t) => Err(format!(
+            "Unexpected token {:?} after expression. Can evaluate only a single expression at a time.",
+            t
+        )),
+        None => Ok(result),
     }
 }
 
@@ -107,21 +112,21 @@ mod tests {
     use crate::tokenizer::Tokenizer;
     use googletest::prelude::*;
 
-    fn p(s: &str) -> Option<Expression> {
+    fn p(s: &str) -> std::result::Result<Option<Expression>, String> {
         let mut tokenizer = Tokenizer::from(s.chars());
         parse_expression(&mut tokenizer)
     }
 
     #[gtest]
     fn parse_number() {
-        expect_that!(p("123"), eq(&Some(Number(123))));
+        expect_that!(p("123"), ok(eq(&Some(Number(123)))));
     }
 
     #[gtest]
     fn parse_addition() {
         expect_that!(
             p("1+2"),
-            eq(&Some(Add(Box::new(Number(1)), Box::new(Number(2)))))
+            ok(eq(&Some(Add(Box::new(Number(1)), Box::new(Number(2))))))
         )
     }
 
@@ -129,10 +134,10 @@ mod tests {
     fn parse_addition_three_terms() {
         expect_that!(
             p("1+2+3"),
-            eq(&Some(Add(
+            ok(eq(&Some(Add(
                 Box::new(Add(Box::new(Number(1)), Box::new(Number(2)))),
                 Box::new(Number(3))
-            )))
+            ))))
         )
     }
 
@@ -140,10 +145,10 @@ mod tests {
     fn parse_subtraction_three_terms() {
         expect_that!(
             p("1-2-3"),
-            eq(&Some(Sub(
+            ok(eq(&Some(Sub(
                 Box::new(Sub(Box::new(Number(1)), Box::new(Number(2)))),
                 Box::new(Number(3))
-            )))
+            ))))
         )
     }
 
@@ -151,7 +156,7 @@ mod tests {
     fn parse_multiplication() {
         expect_that!(
             p("2*3"),
-            eq(&Some(Mult(Box::new(Number(2)), Box::new(Number(3)))))
+            ok(eq(&Some(Mult(Box::new(Number(2)), Box::new(Number(3))))))
         )
     }
 
@@ -159,10 +164,10 @@ mod tests {
     fn parse_multiplication_three_terms() {
         expect_that!(
             p("2*3*4"),
-            eq(&Some(Mult(
+            ok(eq(&Some(Mult(
                 Box::new(Mult(Box::new(Number(2)), Box::new(Number(3)))),
                 Box::new(Number(4))
-            )))
+            ))))
         )
     }
 
@@ -170,7 +175,7 @@ mod tests {
     fn parse_division() {
         expect_that!(
             p("2/3"),
-            eq(&Some(Div(Box::new(Number(2)), Box::new(Number(3)))))
+            ok(eq(&Some(Div(Box::new(Number(2)), Box::new(Number(3))))))
         )
     }
 
@@ -178,10 +183,10 @@ mod tests {
     fn parse_division_three_terms() {
         expect_that!(
             p("2/3/4"),
-            eq(&Some(Div(
+            ok(eq(&Some(Div(
                 Box::new(Div(Box::new(Number(2)), Box::new(Number(3)))),
                 Box::new(Number(4))
-            )))
+            ))))
         )
     }
 
@@ -189,10 +194,15 @@ mod tests {
     fn multiplication_addition_priority() {
         expect_that!(
             p("2+3*5"),
-            eq(&Some(Add(
+            ok(eq(&Some(Add(
                 Box::new(Number(2)),
                 Box::new(Mult(Box::new(Number(3)), Box::new(Number(5))))
-            )))
+            ))))
         )
+    }
+
+    #[gtest]
+    fn invalid_token_after_expression() {
+        expect_that!(p("2 3"), err(contains_substring("Unexpected token")))
     }
 }
