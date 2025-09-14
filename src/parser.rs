@@ -15,7 +15,7 @@ where
     // by `peek()`.
     #[allow(clippy::manual_map)]
     let result = match p.peek() {
-        Some(_) => Some(parse_term(&mut p)),
+        Some(_) => Some(parse_term(&mut p)?),
         None => None,
     };
     // Make sure no tokens follow.
@@ -35,26 +35,26 @@ where
 /// ```ignore
 /// term → factor ( ( "-" | "+" ) factor )* ;
 /// ```
-fn parse_term<I>(p: &mut Peekable<I>) -> Expression
+fn parse_term<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Token>,
 {
-    let mut lhs = parse_factor(p);
+    let mut lhs = parse_factor(p)?;
     loop {
         match p.peek() {
             // End of input
             Some(Plus) => {
                 p.next();
-                lhs = Add(Box::new(lhs), Box::new(parse_factor(p)));
+                lhs = Add(Box::new(lhs), Box::new(parse_factor(p)?));
             }
             Some(Minus) => {
                 p.next();
-                lhs = Sub(Box::new(lhs), Box::new(parse_factor(p)));
+                lhs = Sub(Box::new(lhs), Box::new(parse_factor(p)?));
             }
             // End of production, just return what we have.
-            Some(_) => break lhs,
+            Some(_) => break Ok(lhs),
             // End of input, just return what we have.
-            None => break lhs,
+            None => break Ok(lhs),
         }
     }
 }
@@ -66,43 +66,47 @@ where
 /// ```ignore
 /// term → primary ( ( "*" | "/" ) primary )* ;
 /// ```
-fn parse_factor<I>(p: &mut Peekable<I>) -> Expression
+fn parse_factor<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Token>,
 {
     // Note that the implementation has exactly the same structure as `parse_term` above, only the
     // tokens are different and the types of sub-expressions.
-    let mut lhs = parse_primary(p);
+    let mut lhs = parse_primary(p)?;
     loop {
         match p.peek() {
             // End of input
             Some(Times) => {
                 p.next();
-                lhs = Mult(Box::new(lhs), Box::new(parse_primary(p)));
+                lhs = Mult(Box::new(lhs), Box::new(parse_primary(p)?));
             }
             Some(Slash) => {
                 p.next();
-                lhs = Div(Box::new(lhs), Box::new(parse_primary(p)));
+                lhs = Div(Box::new(lhs), Box::new(parse_primary(p)?));
             }
             // End of production, just return what we have.
-            Some(_) => break lhs,
+            Some(_) => break Ok(lhs),
             // End of input, just return what we have.
-            None => break lhs,
+            None => break Ok(lhs),
         }
     }
 }
 
 /// Parses a primary expression.
-fn parse_primary<I>(p: &mut Peekable<I>) -> Expression
+fn parse_primary<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Token>,
 {
     match p.next() {
-        Some(NumberToken(i)) => Number(i),
+        Some(NumberToken(i)) => Ok(Number(i)),
         // TODO: Support other primaries besides numbers.
-        // TODO: Use Result to return a proper error here.
-        None => panic!("Unexpected end of expression"),
-        Some(t) => panic!("Unexpected token while parsing primary: {:?}", t),
+        // TODO: Return error with more context rather than just a string.
+        None => {
+            Err(String::from("Unexpected end of input, expected: primary."))
+        }
+        Some(t) => {
+            Err(format!("Unexpected token while parsing primary: {:?}", t))
+        }
     }
 }
 
@@ -204,5 +208,37 @@ mod tests {
     #[gtest]
     fn invalid_token_after_expression() {
         expect_that!(p("2 3"), err(contains_substring("Unexpected token")))
+    }
+
+    #[gtest]
+    fn incomplete_addition() {
+        expect_that!(
+            p("2+"),
+            err(contains_substring("Unexpected end of input"))
+        )
+    }
+
+    #[gtest]
+    fn incomplete_multiplication() {
+        expect_that!(
+            p("2*"),
+            err(contains_substring("Unexpected end of input"))
+        )
+    }
+
+    #[gtest]
+    fn invalid_addition() {
+        expect_that!(
+            p("2++"),
+            err(contains_substring("Unexpected token while parsing primary"))
+        )
+    }
+
+    #[gtest]
+    fn invalid_multiplication() {
+        expect_that!(
+            p("2*+"),
+            err(contains_substring("Unexpected token while parsing primary"))
+        )
     }
 }
