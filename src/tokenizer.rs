@@ -1,5 +1,5 @@
 use crate::tokens::Token::{self, *};
-use std::iter::Peekable;
+use std::{iter::Peekable, num::IntErrorKind};
 
 /// A tokenizer allows to iterate over the tokens produced from a stream of characters.
 pub struct Tokenizer<I: Iterator<Item = char>> {
@@ -51,11 +51,20 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
                 }
             }
         }
-        // It's safe to use expect() here, as the above code ensures we are only adding digits to
-        // the buffer.
-        Ok(Token::NumberToken(buf.parse().expect(
-            "Parsing error, even though we only added digits.",
-        )))
+        match buf.parse() {
+            Ok(i) => Ok(Token::NumberToken(i)),
+            Err(e) => match e.kind() {
+                IntErrorKind::PosOverflow => Err(format!(
+                    "Number {} is too large, can only parse number up to {}.",
+                    buf,
+                    i32::MAX
+                )),
+                _ => Err(format!(
+                    "Number parsing error {} while parsing string '{}'.",
+                    e, buf,
+                )),
+            },
+        }
     }
 }
 
@@ -91,6 +100,16 @@ mod tests {
     fn tokenize(s: &str) -> std::result::Result<Vec<Token>, String> {
         let t = Tokenizer::from(s.chars());
         t.collect()
+    }
+
+    #[gtest]
+    fn test_too_large_number() {
+        expect_that!(
+            tokenize("1234567890123"),
+            err(eq(
+                "Number 1234567890123 is too large, can only parse number up to 2147483647."
+            ))
+        )
     }
 
     #[gtest]
