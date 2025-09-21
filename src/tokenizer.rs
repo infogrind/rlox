@@ -32,8 +32,6 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
     /// Scans a number. Must only be called if it has previously been detected that the next
     /// character is a digit.
     fn scan_number(&mut self) -> Result<Token, String> {
-        // FIXME: Protect against too large numbers. E.g. if the character stream contains
-        // 1000000000000 then parse() below will fail.
         assert!(self.chars.peek().is_some_and(|c| c.is_ascii_digit()));
         let mut buf = String::from(self.chars.next().expect(
             "There should always be a next character at the start of scan_number()."
