@@ -31,7 +31,7 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
 
     /// Scans a number. Must only be called if it has previously been detected that the next
     /// character is a digit.
-    fn scan_number(&mut self) -> Token {
+    fn scan_number(&mut self) -> Result<Token, String> {
         // FIXME: Protect against too large numbers. E.g. if the character stream contains
         // 1000000000000 then parse() below will fail.
         assert!(self.chars.peek().is_some_and(|c| c.is_ascii_digit()));
@@ -53,17 +53,16 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
         }
         // It's safe to use expect() here, as the above code ensures we are only adding digits to
         // the buffer.
-        Token::NumberToken(
-            buf.parse()
-                .expect("Parsing error, even though we only added digits."),
-        )
+        Ok(Token::NumberToken(buf.parse().expect(
+            "Parsing error, even though we only added digits.",
+        )))
     }
 }
 
 /// Iterator trait implementation for Tokenizer.
 impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
-    type Item = Token;
-    fn next(&mut self) -> Option<Token> {
+    type Item = Result<Token, String>;
+    fn next(&mut self) -> Option<Result<Token, String>> {
         self.skip_whitespace();
         let c = self.chars.peek()?;
         if c.is_ascii_digit() {
@@ -72,13 +71,12 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
         } else {
             // Single character tokens are handled easily.
             match self.chars.next()? {
-                '+' => Some(Plus),
-                '-' => Some(Minus),
-                '*' => Some(Times),
-                '/' => Some(Slash),
+                '+' => Some(Ok(Plus)),
+                '-' => Some(Ok(Minus)),
+                '*' => Some(Ok(Times)),
+                '/' => Some(Ok(Slash)),
                 // TODO: Handle other single character tokens here.
-                // TODO: Change this code to return a Result, so that we dont' have to panic here.
-                c => panic!("Invalid character: '{}'", c),
+                c => Some(Err(format!("Invalid token: {}", c))),
             }
         }
     }
@@ -90,36 +88,41 @@ mod tests {
     use super::*;
     use googletest::prelude::*;
 
-    fn tokenize(s: &str) -> Vec<Token> {
+    fn tokenize(s: &str) -> std::result::Result<Vec<Token>, String> {
         let t = Tokenizer::from(s.chars());
         t.collect()
     }
 
     #[gtest]
+    fn test_invalid_token() {
+        expect_that!(tokenize("?"), err(eq("Invalid token: ?")))
+    }
+
+    #[gtest]
     fn test_scan_number() {
-        expect_that!(tokenize("123"), elements_are!(&NumberToken(123)));
+        expect_that!(tokenize("123"), ok(elements_are!(&NumberToken(123))));
     }
 
     #[gtest]
     fn test_leading_whitespace_trimmed() {
-        expect_that!(tokenize("  12"), elements_are!(&NumberToken(12)));
+        expect_that!(tokenize("  12"), ok(elements_are!(&NumberToken(12))));
     }
 
     #[gtest]
     fn test_trailing_whitespace_trimmed() {
-        expect_that!(tokenize("34  "), elements_are!(&NumberToken(34)));
+        expect_that!(tokenize("34  "), ok(elements_are!(&NumberToken(34))));
     }
 
     #[gtest]
     fn test_scan_plus() {
-        expect_that!(tokenize("+"), elements_are!(&Plus));
+        expect_that!(tokenize("+"), ok(elements_are!(&Plus)));
     }
 
     #[gtest]
     fn test_scan_two_numbers() {
         expect_that!(
             tokenize(" 123  456 "),
-            elements_are!(&NumberToken(123), &NumberToken(456))
+            ok(elements_are!(&NumberToken(123), &NumberToken(456)))
         );
     }
 
@@ -127,30 +130,30 @@ mod tests {
     fn test_scan_number_plus_number() {
         expect_that!(
             tokenize("1+2"),
-            elements_are!(&NumberToken(1), &Plus, &NumberToken(2))
+            ok(elements_are!(&NumberToken(1), &Plus, &NumberToken(2)))
         )
     }
 
     #[gtest]
     fn test_scan_minus() {
-        expect_that!(tokenize("-"), elements_are!(&Minus))
+        expect_that!(tokenize("-"), ok(elements_are!(&Minus)))
     }
 
     #[gtest]
     fn test_scan_times() {
-        expect_that!(tokenize("*"), elements_are!(&Times))
+        expect_that!(tokenize("*"), ok(elements_are!(&Times)))
     }
 
     #[gtest]
     fn test_scan_slash() {
-        expect_that!(tokenize("/"), elements_are!(&Slash))
+        expect_that!(tokenize("/"), ok(elements_are!(&Slash)))
     }
 
     #[gtest]
     fn test_scan_complex_sequence() {
         expect_that!(
             tokenize(" 1/34 9+9/1-**/02+ 2+ 3 "),
-            elements_are!(
+            ok(elements_are!(
                 &NumberToken(1),
                 &Slash,
                 &NumberToken(34),
@@ -168,7 +171,7 @@ mod tests {
                 &NumberToken(2),
                 &Plus,
                 &NumberToken(3)
-            )
+            ))
         )
     }
 }

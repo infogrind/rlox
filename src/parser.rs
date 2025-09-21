@@ -7,7 +7,7 @@ use std::iter::Peekable;
 /// Returns `None` if and only if the given token stream is empty.
 pub fn parse_expression<I>(tokens: &mut I) -> Result<Option<Expression>, String>
 where
-    I: Iterator<Item = Token>,
+    I: Iterator<Item = Result<Token, String>>,
 {
     let mut p = tokens.peekable();
     // We can't use `map()` on the Option returned by peek() here, as this would lead to a double
@@ -37,11 +37,14 @@ where
 /// ```
 fn parse_term<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
-    I: Iterator<Item = Token>,
+    I: Iterator<Item = Result<Token, String>>,
 {
     let mut lhs = parse_factor(p)?;
     loop {
-        match p.peek() {
+        // We need to map a &Result<Token, String> to a Result<&Token, &String>, then
+        // transpose() will give us a Result<Option<&Token>, String>, and we can use the ?
+        // operator early on.
+        match p.peek().map(|r| r.as_ref()).transpose()? {
             // End of input
             Some(Plus) => {
                 p.next();
@@ -68,13 +71,13 @@ where
 /// ```
 fn parse_factor<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
-    I: Iterator<Item = Token>,
+    I: Iterator<Item = Result<Token, String>>,
 {
     // Note that the implementation has exactly the same structure as `parse_term` above, only the
     // tokens are different and the types of sub-expressions.
     let mut lhs = parse_primary(p)?;
     loop {
-        match p.peek() {
+        match p.peek().map(|r| r.as_ref()).transpose()? {
             // End of input
             Some(Times) => {
                 p.next();
@@ -95,17 +98,16 @@ where
 /// Parses a primary expression.
 fn parse_primary<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
-    I: Iterator<Item = Token>,
+    I: Iterator<Item = Result<Token, String>>,
 {
-    match p.next() {
+    match p.next().transpose()? {
         Some(NumberToken(i)) => Ok(Number(i)),
         // TODO: Support other primaries besides numbers.
-        // TODO: Return error with more context rather than just a string.
-        None => {
-            Err(String::from("Unexpected end of input, expected: primary."))
-        }
         Some(t) => {
             Err(format!("Unexpected token while parsing primary: {:?}", t))
+        }
+        None => {
+            Err(String::from("Unexpected end of input, expected: primary."))
         }
     }
 }
