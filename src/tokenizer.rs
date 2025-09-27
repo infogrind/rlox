@@ -82,6 +82,8 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
                 '-' => Some(Ok(Minus)),
                 '*' => Some(Ok(Times)),
                 '/' => Some(Ok(Slash)),
+                '(' => Some(Ok(Lparen)),
+                ')' => Some(Ok(Rparen)),
                 '<' => {
                     if matches!(self.chars.peek(), Some('=')) {
                         self.chars.next();
@@ -201,6 +203,17 @@ mod tests {
     fn test_scan_le() {
         expect_that!(tokenize("<="), ok(elements_are!(&LeToken)))
     }
+
+    #[gtest]
+    fn test_scan_lparen() {
+        expect_that!(tokenize("("), ok(elements_are!(&Lparen)))
+    }
+
+    #[gtest]
+    fn test_scan_rparen() {
+        expect_that!(tokenize(")"), ok(elements_are!(&Rparen)))
+    }
+
     #[gtest]
     fn test_scan_complex_sequence() {
         expect_that!(

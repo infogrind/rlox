@@ -15,17 +15,25 @@ where
     // mutable borrow, because we'd have to use p inside the lambda while it's borrowed immutably
     // by `peek()`.
     #[allow(clippy::manual_map)]
-    let result = match p.peek() {
-        Some(_) => Some(parse_comparison(p)?),
-        None => None,
-    };
-    // Make sure no tokens follow.
     match p.peek() {
-        Some(t) => Err(format!(
-            "Unexpected token {:?} after expression. Can evaluate only a single expression at a time.",
-            t
-        )),
-        None => Ok(result),
+        Some(_) => Ok(Some(parse_comparison(p)?)),
+        None => Ok(None),
+    }
+}
+
+fn eat<I>(p: &mut Peekable<I>, t: Token) -> Result<(), String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+{
+    match p.next().transpose()? {
+        Some(tt) => {
+            if t != tt {
+                Err(format!("Unexpected token: {}, expected: {}", tt, t))
+            } else {
+                Ok(())
+            }
+        }
+        None => Err(format!("Unexpected end of input, expected: {}", t)),
     }
 }
 
@@ -139,7 +147,19 @@ where
 {
     match p.next().transpose()? {
         Some(NumberToken(i)) => Ok(Number(i)),
-        // TODO: Support other primaries besides numbers.
+        Some(Lparen) => {
+            let expr: Option<Expression> = parse_expression(p)?;
+            match expr {
+                Some(e) => {
+                    eat(p, Rparen)?;
+                    Ok(e)
+                }
+                None => {
+                    Err(String::from("Unexpected end of input inside group."))
+                }
+            }
+        }
+        // TODO: Support other primaries.
         Some(t) => {
             Err(format!("Unexpected token while parsing primary: {:?}", t))
         }
@@ -310,11 +330,6 @@ mod tests {
     }
 
     #[gtest]
-    fn invalid_token_after_expression() {
-        expect_that!(p("2 3"), err(contains_substring("Unexpected token")))
-    }
-
-    #[gtest]
     fn incomplete_addition() {
         expect_that!(
             p("2+"),
@@ -343,6 +358,22 @@ mod tests {
         expect_that!(
             p("2*+"),
             err(contains_substring("Unexpected token while parsing primary"))
+        )
+    }
+
+    #[gtest]
+    fn test_simple_group() {
+        expect_that!(p("(3)"), ok(eq(&Some(Number(3)))))
+    }
+
+    #[gtest]
+    fn test_group_precedence() {
+        expect_that!(
+            p("2 * (3 + 5)"),
+            ok(eq(&Some(Mult(
+                Box::new(Number(2)),
+                Box::new(Add(Box::new(Number(3)), Box::new(Number(5))))
+            ))))
         )
     }
 }
