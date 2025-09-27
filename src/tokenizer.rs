@@ -32,24 +32,34 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
     /// Scans a number. Must only be called if it has previously been detected that the next
     /// character is a digit.
     fn scan_number(&mut self) -> Result<Token, String> {
-        assert!(self.chars.peek().is_some_and(|c| c.is_ascii_digit()));
-        let mut buf = String::from(self.chars.next().expect(
-            "There should always be a next character at the start of scan_number()."
-        ));
-        loop {
-            match self.chars.peek() {
-                None => break, // End of input
-                Some(c) => {
-                    if c.is_ascii_digit() {
-                        buf.push(self.chars.next().expect(
-                            "Peek indicated character, but next() returned None."));
-                    } else {
-                        break;
-                    }
-                }
+        let first = match self.chars.next() {
+            Some(c) if c.is_ascii_digit() => c,
+            Some(c) => {
+                return Err(format!(
+                    "Internal lexer error: expected digit, found '{}' while scanning number.",
+                    c
+                ));
+            }
+            None => {
+                return Err(String::from(
+                    "Internal lexer error: reached end of input while scanning number.",
+                ));
+            }
+        };
+
+        let mut buf = String::new();
+        buf.push(first);
+
+        while let Some(&c) = self.chars.peek() {
+            if c.is_ascii_digit() {
+                self.chars.next();
+                buf.push(c);
+            } else {
+                break;
             }
         }
-        match buf.parse() {
+
+        match buf.parse::<i32>() {
             Ok(i) => Ok(Token::NumberToken(i)),
             Err(e) => match e.kind() {
                 IntErrorKind::PosOverflow => Err(format!(
