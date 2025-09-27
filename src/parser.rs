@@ -8,32 +8,27 @@ pub fn parse_program<I>(
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    let program = parse_expression(p)?;
+    let program = match p.peek().map(|r| r.as_ref()).transpose()? {
+        Some(_) => Some(parse_expression(p)?),
+        None => None,
+    };
+
+    // No other tokens after expression are allowed.
     match p.peek().map(|r| r.as_ref()).transpose()? {
-        Some(_) => Err(String::from(
-            "Unexpected token after expression. A program consists of at most one expression.",
+        Some(t) => Err(format!(
+            "Unexpected token: {} after single allowed expression.",
+            t
         )),
         None => Ok(program),
     }
 }
 
 /// Parses a sequence of tokens into an expression.
-///
-/// Returns `None` if and only if the given token stream is empty.
-fn parse_expression<I>(
-    p: &mut Peekable<I>,
-) -> Result<Option<Expression>, String>
+fn parse_expression<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    // We can't use `map()` on the Option returned by peek() here, as this would lead to a double
-    // mutable borrow, because we'd have to use p inside the lambda while it's borrowed immutably
-    // by `peek()`.
-    #[allow(clippy::manual_map)]
-    match p.peek() {
-        Some(_) => Ok(Some(parse_comparison(p)?)),
-        None => Ok(None),
-    }
+    parse_comparison(p)
 }
 
 fn eat<I>(p: &mut Peekable<I>, t: Token) -> Result<(), String>
@@ -163,16 +158,9 @@ where
     match p.next().transpose()? {
         Some(NumberToken(i)) => Ok(Number(i)),
         Some(Lparen) => {
-            let expr: Option<Expression> = parse_expression(p)?;
-            match expr {
-                Some(e) => {
-                    eat(p, Rparen)?;
-                    Ok(e)
-                }
-                None => {
-                    Err(String::from("Unexpected end of input inside group."))
-                }
-            }
+            let expr = parse_expression(p)?;
+            eat(p, Rparen)?;
+            Ok(expr)
         }
         // TODO: Support other primaries.
         Some(t) => {
@@ -196,11 +184,13 @@ mod tests {
     }
 
     #[gtest]
+    fn test_empty_program() {
+        expect_that!(p(""), ok(eq(&None)))
+    }
+
+    #[gtest]
     fn test_fail_with_two_expressions() {
-        expect_that!(
-            p("2 3"),
-            err(contains_substring("Unexpected token after expression"))
-        )
+        expect_that!(p("2 3"), err(contains_substring("Unexpected token: 3")))
     }
 
     #[gtest]
