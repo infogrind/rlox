@@ -1,5 +1,11 @@
 use std::fmt;
 
+// Syntax definition. Token names are capitalized here.
+//
+// Expression    -> Term
+// Term          -> Factor ( ( PLUS | MINUS ) Factor )*
+// Factor        -> Primary ( ( TIMES | SLASH ) Primary )*
+
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Add(Box<Expression>, Box<Expression>),
