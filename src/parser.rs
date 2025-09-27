@@ -2,10 +2,25 @@ use crate::syntax::Expression::{self, *};
 use crate::tokens::Token::{self, *};
 use std::iter::Peekable;
 
+pub fn parse_program<I>(
+    p: &mut Peekable<I>,
+) -> Result<Option<Expression>, String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+{
+    let program = parse_expression(p)?;
+    match p.peek().map(|r| r.as_ref()).transpose()? {
+        Some(_) => Err(String::from(
+            "Unexpected token after expression. A program consists of at most one expression.",
+        )),
+        None => Ok(program),
+    }
+}
+
 /// Parses a sequence of tokens into an expression.
 ///
 /// Returns `None` if and only if the given token stream is empty.
-pub fn parse_expression<I>(
+fn parse_expression<I>(
     p: &mut Peekable<I>,
 ) -> Result<Option<Expression>, String>
 where
@@ -177,7 +192,15 @@ mod tests {
 
     fn p(s: &str) -> std::result::Result<Option<Expression>, String> {
         let tokenizer = Tokenizer::from(s.chars());
-        parse_expression(&mut tokenizer.peekable())
+        parse_program(&mut tokenizer.peekable())
+    }
+
+    #[gtest]
+    fn test_fail_with_two_expressions() {
+        expect_that!(
+            p("2 3"),
+            err(contains_substring("Unexpected token after expression"))
+        )
     }
 
     #[gtest]

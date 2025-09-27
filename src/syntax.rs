@@ -2,10 +2,14 @@ use std::fmt;
 
 // Syntax definition. Token names are capitalized here.
 //
+// Program       -> Expression?
 // Expression    -> Comparison
 // Comparison    -> Term ( ( GT | GE | LT | LE ) Term )*
 // Term          -> Factor ( ( PLUS | MINUS ) Factor )*
 // Factor        -> Primary ( ( TIMES | SLASH ) Primary )*
+// Primary       -> Number
+//                  | Group
+// Group         -> LPAREN Expression RPAREN
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
