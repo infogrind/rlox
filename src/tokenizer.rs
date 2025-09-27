@@ -82,6 +82,22 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
                 '-' => Some(Ok(Minus)),
                 '*' => Some(Ok(Times)),
                 '/' => Some(Ok(Slash)),
+                '<' => {
+                    if matches!(self.chars.peek(), Some('=')) {
+                        self.chars.next();
+                        Some(Ok(LeToken))
+                    } else {
+                        Some(Ok(LtToken))
+                    }
+                }
+                '>' => {
+                    if matches!(self.chars.peek(), Some('=')) {
+                        self.chars.next();
+                        Some(Ok(GeToken))
+                    } else {
+                        Some(Ok(GtToken))
+                    }
+                }
                 // TODO: Handle other single character tokens here.
                 c => Some(Err(format!("Invalid token: {}", c))),
             }
@@ -167,17 +183,37 @@ mod tests {
     }
 
     #[gtest]
+    fn test_scan_gt() {
+        expect_that!(tokenize(">"), ok(elements_are!(&GtToken)))
+    }
+
+    #[gtest]
+    fn test_scan_ge() {
+        expect_that!(tokenize(">="), ok(elements_are!(&GeToken)))
+    }
+
+    #[gtest]
+    fn test_scan_lt() {
+        expect_that!(tokenize("<"), ok(elements_are!(&LtToken)))
+    }
+
+    #[gtest]
+    fn test_scan_le() {
+        expect_that!(tokenize("<="), ok(elements_are!(&LeToken)))
+    }
+    #[gtest]
     fn test_scan_complex_sequence() {
         expect_that!(
-            tokenize(" 1/34 9+9/1-**/02+ 2+ 3 "),
+            tokenize(" 1/34 > 9+9<=1-**/02+ 2+< 3 "),
             ok(elements_are!(
                 &NumberToken(1),
                 &Slash,
                 &NumberToken(34),
+                &GtToken,
                 &NumberToken(9),
                 &Plus,
                 &NumberToken(9),
-                &Slash,
+                &LeToken,
                 &NumberToken(1),
                 &Minus,
                 &Times,
@@ -187,6 +223,7 @@ mod tests {
                 &Plus,
                 &NumberToken(2),
                 &Plus,
+                &LtToken,
                 &NumberToken(3)
             ))
         )

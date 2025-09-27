@@ -2,7 +2,8 @@ use std::fmt;
 
 // Syntax definition. Token names are capitalized here.
 //
-// Expression    -> Term
+// Expression    -> Comparison
+// Comparison    -> Term ( ( GT | GE | LT | LE ) Term )*
 // Term          -> Factor ( ( PLUS | MINUS ) Factor )*
 // Factor        -> Primary ( ( TIMES | SLASH ) Primary )*
 
@@ -12,6 +13,10 @@ pub enum Expression {
     Sub(Box<Expression>, Box<Expression>),
     Mult(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
+    Gt(Box<Expression>, Box<Expression>),
+    Ge(Box<Expression>, Box<Expression>),
+    Lt(Box<Expression>, Box<Expression>),
+    Le(Box<Expression>, Box<Expression>),
     // TODO: Support floats.
     Number(i32),
     // TODO: Add support for additional expression types.
@@ -29,6 +34,10 @@ impl fmt::Display for Expression {
             Expression::Sub(lhs, rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(lhs, rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(lhs, rhs) => write!(f, "({} / {})", lhs, rhs),
+            Expression::Gt(lhs, rhs) => write!(f, "({} > {})", lhs, rhs),
+            Expression::Ge(lhs, rhs) => write!(f, "({} >= {})", lhs, rhs),
+            Expression::Lt(lhs, rhs) => write!(f, "({} < {})", lhs, rhs),
+            Expression::Le(lhs, rhs) => write!(f, "({} <= {})", lhs, rhs),
             Expression::Number(i) => write!(f, "{i}"),
         }
     }

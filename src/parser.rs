@@ -15,7 +15,7 @@ where
     // by `peek()`.
     #[allow(clippy::manual_map)]
     let result = match p.peek() {
-        Some(_) => Some(parse_term(&mut p)?),
+        Some(_) => Some(parse_comparison(&mut p)?),
         None => None,
     };
     // Make sure no tokens follow.
@@ -25,6 +25,42 @@ where
             t
         )),
         None => Ok(result),
+    }
+}
+
+/// Parses a comparison expression.
+///
+/// Syntax definition:
+///
+/// ```ignore
+/// comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+/// ```
+fn parse_comparison<I>(p: &mut Peekable<I>) -> Result<Expression, String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+{
+    let mut lhs = parse_term(p)?;
+    loop {
+        match p.peek().map(|r| r.as_ref()).transpose()? {
+            Some(GtToken) => {
+                p.next();
+                lhs = Gt(Box::new(lhs), Box::new(parse_term(p)?));
+            }
+            Some(GeToken) => {
+                p.next();
+                lhs = Ge(Box::new(lhs), Box::new(parse_term(p)?));
+            }
+            Some(LtToken) => {
+                p.next();
+                lhs = Lt(Box::new(lhs), Box::new(parse_term(p)?));
+            }
+            Some(LeToken) => {
+                p.next();
+                lhs = Le(Box::new(lhs), Box::new(parse_term(p)?));
+            }
+            Some(_) => break Ok(lhs),
+            None => break Ok(lhs),
+        }
     }
 }
 
@@ -192,6 +228,71 @@ mod tests {
             ok(eq(&Some(Div(
                 Box::new(Div(Box::new(Number(2)), Box::new(Number(3)))),
                 Box::new(Number(4))
+            ))))
+        )
+    }
+
+    #[gtest]
+    fn parse_greater_than() {
+        expect_that!(
+            p("2>3"),
+            ok(eq(&Some(Gt(Box::new(Number(2)), Box::new(Number(3))))))
+        )
+    }
+
+    #[gtest]
+    fn parse_greater_equal() {
+        expect_that!(
+            p("2>=3"),
+            ok(eq(&Some(Ge(Box::new(Number(2)), Box::new(Number(3))))))
+        )
+    }
+
+    #[gtest]
+    fn parse_less_than() {
+        expect_that!(
+            p("2<3"),
+            ok(eq(&Some(Lt(Box::new(Number(2)), Box::new(Number(3))))))
+        )
+    }
+
+    #[gtest]
+    fn parse_less_equal() {
+        expect_that!(
+            p("2<=3"),
+            ok(eq(&Some(Le(Box::new(Number(2)), Box::new(Number(3))))))
+        )
+    }
+
+    #[gtest]
+    fn comparison_has_lower_priority_than_addition() {
+        expect_that!(
+            p("2+3>4+5"),
+            ok(eq(&Some(Gt(
+                Box::new(Add(Box::new(Number(2)), Box::new(Number(3)))),
+                Box::new(Add(Box::new(Number(4)), Box::new(Number(5))))
+            ))))
+        )
+    }
+
+    #[gtest]
+    fn comparison_has_lower_priority_than_multiplication() {
+        expect_that!(
+            p("2*3>4*5"),
+            ok(eq(&Some(Gt(
+                Box::new(Mult(Box::new(Number(2)), Box::new(Number(3)))),
+                Box::new(Mult(Box::new(Number(4)), Box::new(Number(5))))
+            ))))
+        )
+    }
+
+    #[gtest]
+    fn chained_comparison() {
+        expect_that!(
+            p("1<2>3"),
+            ok(eq(&Some(Gt(
+                Box::new(Lt(Box::new(Number(1)), Box::new(Number(2)))),
+                Box::new(Number(3))
             ))))
         )
     }
