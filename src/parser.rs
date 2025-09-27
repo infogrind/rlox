@@ -2,19 +2,136 @@ use crate::syntax::Expression::{self, *};
 use crate::tokens::Token::{self, *};
 use std::iter::Peekable;
 
+// Helper type alias so we can store a simple function pointer for building binary expressions.
+type BinaryBuilder = fn(Expression, Expression) -> Expression;
+
+/// Peek at the upcoming token without consuming it, converting any tokenizer error into an owned
+/// `String` so the parser does not borrow from the iterator's error value.
+fn peek_token<I>(p: &mut Peekable<I>) -> Result<Option<&Token>, String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+{
+    p.peek()
+        .map(|r| r.as_ref())
+        .transpose()
+        .map_err(|e| e.clone())
+}
+
+/// Advance the iterator by one step and return the token if available.
+fn next_token<I>(p: &mut Peekable<I>) -> Result<Option<Token>, String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+{
+    p.next().transpose()
+}
+
+/// Advance the iterator and yield a token, returning an error when the stream unexpectedly ends.
+fn advance_token<I>(p: &mut Peekable<I>) -> Result<Token, String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+{
+    next_token(p)?.ok_or_else(|| {
+        String::from("Unexpected end of input while advancing token stream.")
+    })
+}
+
+/// Parse a left-associative expression layer by repeatedly matching operators and combining
+/// operands, keeping the grammar-specific pieces (operand parser and operator matcher) pluggable.
+fn parse_left_associative<I, F>(
+    p: &mut Peekable<I>,
+    mut parse_operand: F,
+    match_op: fn(&Token) -> Option<BinaryBuilder>,
+) -> Result<Expression, String>
+where
+    I: Iterator<Item = Result<Token, String>>,
+    F: FnMut(&mut Peekable<I>) -> Result<Expression, String>,
+{
+    let mut lhs = parse_operand(p)?;
+    while let Some(token) = peek_token(p)? {
+        let builder = match_op(token);
+        let builder = match builder {
+            Some(b) => b,
+            None => break,
+        };
+        // Consume the operator we just matched.
+        advance_token(p)?;
+        let rhs = parse_operand(p)?;
+        lhs = builder(lhs, rhs);
+    }
+    Ok(lhs)
+}
+
+fn make_add(lhs: Expression, rhs: Expression) -> Expression {
+    Add(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_sub(lhs: Expression, rhs: Expression) -> Expression {
+    Sub(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_mult(lhs: Expression, rhs: Expression) -> Expression {
+    Mult(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_div(lhs: Expression, rhs: Expression) -> Expression {
+    Div(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_gt(lhs: Expression, rhs: Expression) -> Expression {
+    Gt(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_ge(lhs: Expression, rhs: Expression) -> Expression {
+    Ge(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_lt(lhs: Expression, rhs: Expression) -> Expression {
+    Lt(Box::new(lhs), Box::new(rhs))
+}
+
+fn make_le(lhs: Expression, rhs: Expression) -> Expression {
+    Le(Box::new(lhs), Box::new(rhs))
+}
+
+fn match_comparison_op(token: &Token) -> Option<BinaryBuilder> {
+    match token {
+        GtToken => Some(make_gt),
+        GeToken => Some(make_ge),
+        LtToken => Some(make_lt),
+        LeToken => Some(make_le),
+        _ => None,
+    }
+}
+
+fn match_term_op(token: &Token) -> Option<BinaryBuilder> {
+    match token {
+        Plus => Some(make_add),
+        Minus => Some(make_sub),
+        _ => None,
+    }
+}
+
+fn match_factor_op(token: &Token) -> Option<BinaryBuilder> {
+    match token {
+        Times => Some(make_mult),
+        Slash => Some(make_div),
+        _ => None,
+    }
+}
+
 pub fn parse_program<I>(
     p: &mut Peekable<I>,
 ) -> Result<Option<Expression>, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    let program = match p.peek().map(|r| r.as_ref()).transpose()? {
+    let program = match peek_token(p)? {
         Some(_) => Some(parse_expression(p)?),
         None => None,
     };
 
     // No other tokens after expression are allowed.
-    match p.peek().map(|r| r.as_ref()).transpose()? {
+    match peek_token(p)? {
         Some(t) => Err(format!(
             "Unexpected token: {} after single allowed expression.",
             t
@@ -35,14 +152,9 @@ fn eat<I>(p: &mut Peekable<I>, t: Token) -> Result<(), String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    match p.next().transpose()? {
-        Some(tt) => {
-            if t != tt {
-                Err(format!("Unexpected token: {}, expected: {}", tt, t))
-            } else {
-                Ok(())
-            }
-        }
+    match next_token(p)? {
+        Some(tt) if tt == t => Ok(()),
+        Some(tt) => Err(format!("Unexpected token: {}, expected: {}", tt, t)),
         None => Err(format!("Unexpected end of input, expected: {}", t)),
     }
 }
@@ -58,29 +170,7 @@ fn parse_comparison<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    let mut lhs = parse_term(p)?;
-    loop {
-        match p.peek().map(|r| r.as_ref()).transpose()? {
-            Some(GtToken) => {
-                p.next();
-                lhs = Gt(Box::new(lhs), Box::new(parse_term(p)?));
-            }
-            Some(GeToken) => {
-                p.next();
-                lhs = Ge(Box::new(lhs), Box::new(parse_term(p)?));
-            }
-            Some(LtToken) => {
-                p.next();
-                lhs = Lt(Box::new(lhs), Box::new(parse_term(p)?));
-            }
-            Some(LeToken) => {
-                p.next();
-                lhs = Le(Box::new(lhs), Box::new(parse_term(p)?));
-            }
-            Some(_) => break Ok(lhs),
-            None => break Ok(lhs),
-        }
-    }
+    parse_left_associative(p, |stream| parse_term(stream), match_comparison_op)
 }
 
 /// Parses a term expression.
@@ -94,27 +184,7 @@ fn parse_term<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    let mut lhs = parse_factor(p)?;
-    loop {
-        // We need to map a &Result<Token, String> to a Result<&Token, &String>, then
-        // transpose() will give us a Result<Option<&Token>, String>, and we can use the ?
-        // operator early on.
-        match p.peek().map(|r| r.as_ref()).transpose()? {
-            // End of input
-            Some(Plus) => {
-                p.next();
-                lhs = Add(Box::new(lhs), Box::new(parse_factor(p)?));
-            }
-            Some(Minus) => {
-                p.next();
-                lhs = Sub(Box::new(lhs), Box::new(parse_factor(p)?));
-            }
-            // End of production, just return what we have.
-            Some(_) => break Ok(lhs),
-            // End of input, just return what we have.
-            None => break Ok(lhs),
-        }
-    }
+    parse_left_associative(p, |stream| parse_factor(stream), match_term_op)
 }
 
 /// Parses a factor expression.
@@ -128,26 +198,7 @@ fn parse_factor<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    // Note that the implementation has exactly the same structure as `parse_term` above, only the
-    // tokens are different and the types of sub-expressions.
-    let mut lhs = parse_primary(p)?;
-    loop {
-        match p.peek().map(|r| r.as_ref()).transpose()? {
-            // End of input
-            Some(Times) => {
-                p.next();
-                lhs = Mult(Box::new(lhs), Box::new(parse_primary(p)?));
-            }
-            Some(Slash) => {
-                p.next();
-                lhs = Div(Box::new(lhs), Box::new(parse_primary(p)?));
-            }
-            // End of production, just return what we have.
-            Some(_) => break Ok(lhs),
-            // End of input, just return what we have.
-            None => break Ok(lhs),
-        }
-    }
+    parse_left_associative(p, |stream| parse_primary(stream), match_factor_op)
 }
 
 /// Parses a primary expression.
@@ -155,7 +206,7 @@ fn parse_primary<I>(p: &mut Peekable<I>) -> Result<Expression, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    match p.next().transpose()? {
+    match next_token(p)? {
         Some(NumberToken(i)) => Ok(Number(i)),
         Some(Lparen) => {
             let expr = parse_expression(p)?;
