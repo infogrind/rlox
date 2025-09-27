@@ -5,21 +5,21 @@ implementation of the "Lox" language in Rust. This is based on the book
 "Crafting Interpreters" by Robert Nystrom, but I want to make some of my own
 changes to the syntax from the book, to make the language more functional.
 
-The source of truth for the language syntax is @./src/syntax.rs.
+The source of truth for the language syntax is src/syntax.rs.
 
 ## Code Structure
 
-- @./src/main.rs: Binary crate, contains only the minimal code to present a
+- src/main.rs: Binary crate, contains only the minimal code to present a
   REPL loop to the user in order to test the language.
-- @./tests/test_main.rs: A minimal set of end-to-end tests to make sure the
+- tests/test_main.rs: A minimal set of end-to-end tests to make sure the
   binary works.
-- @./src/lib.rs: Root of the library crate, only use to export modules and make
+- src/lib.rs: Root of the library crate, only use to export modules and make
   them available to the other modules.
-- @./src/syntax.rs: Syntax definition (in comments) and implementation of the
+- src/syntax.rs: Syntax definition (in comments) and implementation of the
   AST as recursive enums.
-- @./src/tokens.rs: Token definition.
-- @./src/tokenizer.rs: Tokenizer (also known as scanner or lexer).
-- @./src/parser.rs: Parser, reads tokens and creates the abstract syntax tree.
+- src/tokens.rs: Token definition.
+- src/tokenizer.rs: Tokenizer (also known as scanner or lexer).
+- src/parser.rs: Parser, reads tokens and creates the abstract syntax tree.
 
 ## Tools
 
