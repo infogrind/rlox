@@ -27,7 +27,11 @@ fn main() {
                 } else {
                     // The buffer will still contain the newline character, so we need to trim it
                     // first.
-                    println!("{}", interpreter::interpret(buffer.trim()));
+                    match interpreter::interpret(buffer.trim()) {
+                        Ok(Some(expr)) => println!("{}", expr),
+                        Ok(None) => println!("No input."),
+                        Err(e) => println!("Error: {e}"),
+                    }
                 }
             }
             Err(e) => {
