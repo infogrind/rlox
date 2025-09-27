@@ -5,17 +5,18 @@ use std::iter::Peekable;
 /// Parses a sequence of tokens into an expression.
 ///
 /// Returns `None` if and only if the given token stream is empty.
-pub fn parse_expression<I>(tokens: &mut I) -> Result<Option<Expression>, String>
+pub fn parse_expression<I>(
+    p: &mut Peekable<I>,
+) -> Result<Option<Expression>, String>
 where
     I: Iterator<Item = Result<Token, String>>,
 {
-    let mut p = tokens.peekable();
     // We can't use `map()` on the Option returned by peek() here, as this would lead to a double
     // mutable borrow, because we'd have to use p inside the lambda while it's borrowed immutably
     // by `peek()`.
     #[allow(clippy::manual_map)]
     let result = match p.peek() {
-        Some(_) => Some(parse_comparison(&mut p)?),
+        Some(_) => Some(parse_comparison(p)?),
         None => None,
     };
     // Make sure no tokens follow.
@@ -155,8 +156,8 @@ mod tests {
     use googletest::prelude::*;
 
     fn p(s: &str) -> std::result::Result<Option<Expression>, String> {
-        let mut tokenizer = Tokenizer::from(s.chars());
-        parse_expression(&mut tokenizer)
+        let tokenizer = Tokenizer::from(s.chars());
+        parse_expression(&mut tokenizer.peekable())
     }
 
     #[gtest]
