@@ -48,10 +48,8 @@ where
 {
     let mut lhs = parse_operand(p)?;
     while let Some(token) = peek_token(p)? {
-        let builder = match_op(token);
-        let builder = match builder {
-            Some(b) => b,
-            None => break,
+        let Some(builder) = match_op(token) else {
+            break;
         };
         // Consume the operator we just matched.
         advance_token(p)?;
@@ -61,60 +59,28 @@ where
     Ok(lhs)
 }
 
-fn make_add(lhs: Expression, rhs: Expression) -> Expression {
-    Add(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_sub(lhs: Expression, rhs: Expression) -> Expression {
-    Sub(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_mult(lhs: Expression, rhs: Expression) -> Expression {
-    Mult(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_div(lhs: Expression, rhs: Expression) -> Expression {
-    Div(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_gt(lhs: Expression, rhs: Expression) -> Expression {
-    Gt(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_ge(lhs: Expression, rhs: Expression) -> Expression {
-    Ge(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_lt(lhs: Expression, rhs: Expression) -> Expression {
-    Lt(Box::new(lhs), Box::new(rhs))
-}
-
-fn make_le(lhs: Expression, rhs: Expression) -> Expression {
-    Le(Box::new(lhs), Box::new(rhs))
-}
-
 fn match_comparison_op(token: &Token) -> Option<BinaryBuilder> {
     match token {
-        GtToken => Some(make_gt),
-        GeToken => Some(make_ge),
-        LtToken => Some(make_lt),
-        LeToken => Some(make_le),
+        GtToken => Some(|lhs, rhs| Gt(Box::new(lhs), Box::new(rhs))),
+        GeToken => Some(|lhs, rhs| Ge(Box::new(lhs), Box::new(rhs))),
+        LtToken => Some(|lhs, rhs| Lt(Box::new(lhs), Box::new(rhs))),
+        LeToken => Some(|lhs, rhs| Le(Box::new(lhs), Box::new(rhs))),
         _ => None,
     }
 }
 
 fn match_term_op(token: &Token) -> Option<BinaryBuilder> {
     match token {
-        Plus => Some(make_add),
-        Minus => Some(make_sub),
+        Plus => Some(|lhs, rhs| Add(Box::new(lhs), Box::new(rhs))),
+        Minus => Some(|lhs, rhs| Sub(Box::new(lhs), Box::new(rhs))),
         _ => None,
     }
 }
 
 fn match_factor_op(token: &Token) -> Option<BinaryBuilder> {
     match token {
-        Times => Some(make_mult),
-        Slash => Some(make_div),
+        Times => Some(|lhs, rhs| Mult(Box::new(lhs), Box::new(rhs))),
+        Slash => Some(|lhs, rhs| Div(Box::new(lhs), Box::new(rhs))),
         _ => None,
     }
 }
