@@ -24,9 +24,7 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
     fn skip_whitespace(&mut self) {
         // The matches! macro is a nice way to use a complex match expression in place of a boolean
         // expression.
-        while matches!(self.chars.peek(), Some(c) if c.is_whitespace()) {
-            self.chars.next();
-        }
+        while self.chars.next_if(|c| c.is_whitespace()).is_some() {}
     }
 
     /// Scans a number. Must only be called if it has previously been detected that the next
@@ -50,13 +48,8 @@ impl<I: Iterator<Item = char>> Tokenizer<I> {
         let mut buf = String::new();
         buf.push(first);
 
-        while let Some(&c) = self.chars.peek() {
-            if c.is_ascii_digit() {
-                self.chars.next();
-                buf.push(c);
-            } else {
-                break;
-            }
+        while let Some(c) = self.chars.next_if(|c| c.is_ascii_digit()) {
+            buf.push(c);
         }
 
         match buf.parse::<i32>() {
