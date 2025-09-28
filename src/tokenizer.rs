@@ -74,38 +74,31 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
     type Item = Result<Token, String>;
     fn next(&mut self) -> Option<Result<Token, String>> {
         self.skip_whitespace();
-        let c = self.chars.peek()?;
+        // Here we can use copied() at no extra cost, since the single character
+        // type implements Copy, this is better than passing around a pointer/reference.
+        let c = self.chars.peek().copied()?;
         if c.is_ascii_digit() {
-            Some(self.scan_number())
+            return Some(self.scan_number());
             // TODO: Handle other multi-character tokens here.
-        } else {
-            // Single character tokens are handled easily.
-            match self.chars.next()? {
-                '+' => Some(Ok(Plus)),
-                '-' => Some(Ok(Minus)),
-                '*' => Some(Ok(Times)),
-                '/' => Some(Ok(Slash)),
-                '(' => Some(Ok(Lparen)),
-                ')' => Some(Ok(Rparen)),
-                '<' => {
-                    if matches!(self.chars.peek(), Some('=')) {
-                        self.chars.next();
-                        Some(Ok(LeToken))
-                    } else {
-                        Some(Ok(LtToken))
-                    }
-                }
-                '>' => {
-                    if matches!(self.chars.peek(), Some('=')) {
-                        self.chars.next();
-                        Some(Ok(GeToken))
-                    } else {
-                        Some(Ok(GtToken))
-                    }
-                }
-                // TODO: Handle other single character tokens here.
-                c => Some(Err(format!("Invalid token: {}", c))),
-            }
+        }
+        // Single character tokens are handled easily.
+        match self.chars.next()? {
+            '+' => Some(Ok(Plus)),
+            '-' => Some(Ok(Minus)),
+            '*' => Some(Ok(Times)),
+            '/' => Some(Ok(Slash)),
+            '(' => Some(Ok(Lparen)),
+            ')' => Some(Ok(Rparen)),
+            '<' => match self.chars.next_if_eq(&'=') {
+                Some(_) => Some(Ok(LeToken)),
+                None => Some(Ok(LtToken)),
+            },
+            '>' => match self.chars.next_if_eq(&'=') {
+                Some(_) => Some(Ok(GeToken)),
+                None => Some(Ok(GtToken)),
+            },
+            // TODO: Handle other single character tokens here.
+            c => Some(Err(format!("Invalid token: {}", c))),
         }
     }
 }
